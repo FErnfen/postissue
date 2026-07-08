@@ -385,6 +385,26 @@
             margin-bottom: 20px;
         }
 
+        .drag-handle {
+            cursor: grab;
+            color: #aaa;
+            font-size: 20px;
+            padding: 0 8px;
+            user-select: none;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        tr.dragging {
+            opacity: 0.4;
+        }
+
+        tr.drag-over {
+            border-top: 3px solid #667eea;
+        }
+
         .search-box {
             padding: 12px 20px;
             border: 2px solid #e0e0e0;
@@ -885,22 +905,27 @@
                 </div>
                 <input type="text" class="search-box" placeholder="🔍 ค้นหาสินค้า..." oninput="filterInventory(this.value)">
                 <div id="inventoryLoading" class="loading">กำลังโหลดข้อมูล...</div>
-                <div style="overflow-x: auto; margin-top: 20px;" class="hidden" id="inventoryTableContainer">
-                    <table class="inventory-table">
-                        <thead>
-                            <tr>
-                                <th>รูปภาพ</th>
-                                <th>ชื่อสินค้า</th>
-                                <th>บาร์โค้ด</th>
-                                <th>ราคาขาย</th>
-                                <th>ทุน</th>
-                                <th>กำไร</th>
-                                <th>สต็อก</th>
-                                <th>จัดการ</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventoryTableBody"></tbody>
-                    </table>
+                <div class="hidden" id="inventoryTableContainer">
+                    <div style="background:#e3f2fd;padding:10px 15px;border-radius:8px;margin-bottom:15px;font-size:13px;color:#1976d2;">
+                        💡 ลากแถว <b>☰</b> เพื่อเรียงลำดับสินค้า — ลำดับนี้จะแสดงในหน้าขายของด้วย
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="inventory-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px;"></th>
+                                    <th>รูปภาพ</th>
+                                    <th>ชื่อสินค้า</th>
+                                    <th>ราคาขาย</th>
+                                    <th>ทุน</th>
+                                    <th>กำไร</th>
+                                    <th>สต็อก</th>
+                                    <th>จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventoryTableBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1055,6 +1080,24 @@
                     <img id="imagePreview" class="image-preview hidden">
                 </div>
 
+                <div class="form-group">
+                    <label class="form-label">🏷️ ส่วนลดพิเศษ (คละอัน)</label>
+                    <div style="background:#f5f5f5; padding:12px; border-radius:8px;">
+                        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                            <span style="white-space:nowrap; font-size:14px;">ชื่อกลุ่ม</span>
+                            <input type="text" id="bulkGroup" class="form-input" placeholder="เช่น กลุ่มA, ราคา35" style="flex:1;">
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                            <span style="white-space:nowrap; font-size:14px;">ซื้อ</span>
+                            <input type="number" id="bulkQty" class="form-input" placeholder="จำนวน" min="2" style="width:80px;">
+                            <span style="white-space:nowrap; font-size:14px;">อัน ราคา</span>
+                            <input type="number" id="bulkPrice" class="form-input" placeholder="บาท" min="0" step="0.01" style="width:100px;">
+                            <span style="white-space:nowrap; font-size:14px;">บาท</span>
+                        </div>
+                        <small style="color:#999;">สินค้าที่ชื่อกลุ่มเดียวกันจะนับรวมกันได้เลย เช่น น้ำส้ม+น้ำมะนาว ใส่กลุ่มเดียวกัน ซื้อ 3 อัน 100 บาท</small>
+                    </div>
+                </div>
+
                 <div style="display: flex; gap: 10px;">
                     <button type="submit" class="btn btn-success">💾 บันทึก</button>
                     <button type="button" class="btn btn-danger" onclick="closeProductModal()">❌ ยกเลิก</button>
@@ -1206,7 +1249,9 @@
         // แสดงสินค้า
         function renderProducts() {
             const grid = document.getElementById('productsGrid');
-            const productArray = Object.entries(products).filter(([id, p]) => p.stock > 0);
+            const productArray = Object.entries(products)
+                .filter(([id, p]) => p.stock > 0)
+                .sort((a, b) => (a[1].order || 0) - (b[1].order || 0));
             
             if (productArray.length === 0) {
                 grid.innerHTML = '<div class="empty-cart">ยังไม่มีสินค้า<br><small>ไปที่หน้าจัดการสินค้าเพื่อเพิ่มสินค้า</small></div>';
@@ -1221,9 +1266,93 @@
                     }
                     <div class="product-name">${product.name}</div>
                     <div class="product-price">฿${product.price.toFixed(2)}</div>
-                    <div style="color: #999; font-size: 12px; margin-top: 5px;">คงเหลือ: ${product.stock}</div>
+                    ${product.bulkQty && product.bulkPrice ? 
+                        `<div style="color:#e91e63;font-size:11px;margin-top:3px;font-weight:600;">🏷️ ${product.bulkQty} อัน ฿${product.bulkPrice}</div>` : ''}
+                    <div style="color: #999; font-size: 12px; margin-top: 3px;">คงเหลือ: ${product.stock}</div>
                 </div>
             `).join('');
+        }
+
+        // Drag and Drop เรียงลำดับสินค้า
+        let dragSrcId = null;
+
+        function onDragStart(event, id) {
+            dragSrcId = id;
+            event.currentTarget.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+        }
+
+        function onDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            document.querySelectorAll('tr.drag-over').forEach(r => r.classList.remove('drag-over'));
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function onDrop(event, targetId) {
+            event.preventDefault();
+            if (dragSrcId === targetId) return;
+
+            const productArray = Object.entries(products).sort((a, b) => (a[1].order || 0) - (b[1].order || 0));
+            const srcIndex = productArray.findIndex(([id]) => id === dragSrcId);
+            const tgtIndex = productArray.findIndex(([id]) => id === targetId);
+
+            // สลับลำดับทั้งหมดระหว่าง src และ tgt
+            const updates = {};
+            const moved = productArray.splice(srcIndex, 1)[0];
+            productArray.splice(tgtIndex, 0, moved);
+            productArray.forEach(([id], i) => {
+                updates[`products/${id}/order`] = i;
+            });
+
+            db.ref().update(updates).catch(err => alert('เกิดข้อผิดพลาด: ' + err.message));
+        }
+
+        function onDragEnd(event) {
+            event.currentTarget.classList.remove('dragging');
+            document.querySelectorAll('tr.drag-over').forEach(r => r.classList.remove('drag-over'));
+        }
+
+        // คำนวณราคาพร้อมส่วนลดพิเศษ (รองรับคละอัน)
+        function calcItemTotal(item) {
+            return item.price * item.quantity;
+        }
+
+        // คำนวณส่วนลดกลุ่มจากทั้งตะกร้า
+        function calcBulkDiscount(cartItems) {
+            const groupTotals = {};
+            cartItems.forEach(item => {
+                const p = products[item.id];
+                if (p && p.bulkGroup && p.bulkQty && p.bulkPrice) {
+                    const key = p.bulkGroup;
+                    if (!groupTotals[key]) {
+                        groupTotals[key] = { qty: 0, bulkQty: p.bulkQty, bulkPrice: p.bulkPrice, items: [] };
+                    }
+                    groupTotals[key].qty += item.quantity;
+                    groupTotals[key].items.push(item);
+                }
+            });
+
+            let totalDiscount = 0;
+            const discountDetails = [];
+            Object.entries(groupTotals).forEach(([group, g]) => {
+                if (g.qty >= g.bulkQty) {
+                    const sets = Math.floor(g.qty / g.bulkQty);
+                    const remainder = g.qty % g.bulkQty;
+                    // ราคาปกติของสินค้าทั้งกลุ่ม
+                    let normalPrice = 0;
+                    g.items.forEach(item => { normalPrice += item.price * item.quantity; });
+                    // ราคาพิเศษ = sets * bulkPrice + remainder * ราคาปกติเฉลี่ย
+                    const avgPrice = normalPrice / g.qty;
+                    const specialPrice = (sets * g.bulkPrice) + (remainder * avgPrice);
+                    const saved = normalPrice - specialPrice;
+                    if (saved > 0) {
+                        totalDiscount += saved;
+                        discountDetails.push(`กลุ่ม "${group}": ${g.qty} อัน ประหยัด ฿${saved.toFixed(2)}`);
+                    }
+                }
+            });
+            return { totalDiscount, discountDetails };
         }
 
         // เพิ่มสินค้าในตะกร้า
@@ -1265,15 +1394,20 @@
                 return;
             }
 
-            let total = 0;
+            let subtotal = 0;
             cartDiv.innerHTML = cart.map(item => {
                 const itemTotal = item.price * item.quantity;
-                total += itemTotal;
+                subtotal += itemTotal;
+                const p = products[item.id];
+                const hint = p && p.bulkGroup && p.bulkQty && p.bulkPrice
+                    ? `<div style="color:#ff9800;font-size:11px;">💡 กลุ่ม "${p.bulkGroup}" ซื้อครบ ${p.bulkQty} อัน ฿${p.bulkPrice}</div>`
+                    : '';
                 return `
                     <div class="cart-item">
                         <div class="cart-item-info">
                             <div class="cart-item-name">${item.name}</div>
-                            <div style="color: #667eea;">฿${item.price.toFixed(2)} x ${item.quantity} = ฿${itemTotal.toFixed(2)}</div>
+                            <div style="color:#667eea;">฿${item.price.toFixed(2)} x ${item.quantity} = ฿${itemTotal.toFixed(2)}</div>
+                            ${hint}
                         </div>
                         <div class="cart-item-controls">
                             <button class="qty-btn" onclick="updateCartQty('${item.id}', -1)">-</button>
@@ -1284,6 +1418,22 @@
                     </div>
                 `;
             }).join('');
+
+            // คำนวณส่วนลดกลุ่ม
+            const { totalDiscount, discountDetails } = calcBulkDiscount(cart);
+            const total = subtotal - totalDiscount;
+
+            // แสดงส่วนลดถ้ามี
+            let discountHtml = '';
+            if (totalDiscount > 0) {
+                discountHtml = `
+                    <div style="background:#fce4ec;padding:10px;border-radius:8px;margin-top:10px;font-size:13px;color:#c2185b;">
+                        🏷️ <strong>ส่วนลดพิเศษ!</strong><br>
+                        ${discountDetails.join('<br>')}
+                    </div>
+                `;
+            }
+            cartDiv.innerHTML += discountHtml;
 
             totalDiv.textContent = `฿${total.toFixed(2)}`;
         }
@@ -1350,6 +1500,9 @@
                 totalCost += item.cost * item.quantity;
             });
 
+            // หักส่วนลดกลุ่ม
+            const { totalDiscount } = calcBulkDiscount(cart);
+            total -= totalDiscount;
             const profit = total - totalCost;
 
             // อัพเดทสต็อกและบันทึกการขาย
@@ -1485,7 +1638,7 @@
 
         function renderInventory() {
             const tbody = document.getElementById('inventoryTableBody');
-            const productArray = Object.entries(products);
+            const productArray = Object.entries(products).sort((a, b) => (a[1].order || 0) - (b[1].order || 0));
             
             if (productArray.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 40px;">ยังไม่มีสินค้า<br><button class="btn" style="margin-top: 10px; width: auto;" onclick="openAddProductModal()">➕ เพิ่มสินค้าแรก</button></td></tr>';
@@ -1497,16 +1650,23 @@
             tbody.innerHTML = productArray.map(([id, product]) => {
                 const profit = product.price - product.cost;
                 const profitPercent = ((profit / product.cost) * 100).toFixed(1);
+                const bulkLabel = product.bulkGroup && product.bulkQty && product.bulkPrice
+                    ? `<div style="margin-top:4px;"><span style="background:#fce4ec;color:#c2185b;padding:2px 6px;border-radius:4px;font-size:11px;">🏷️ กลุ่ม "${product.bulkGroup}" ${product.bulkQty} อัน ฿${product.bulkPrice}</span></div>`
+                    : '';
                 return `
-                    <tr>
+                    <tr draggable="true" data-id="${id}" 
+                        ondragstart="onDragStart(event,'${id}')"
+                        ondragover="onDragOver(event)"
+                        ondrop="onDrop(event,'${id}')"
+                        ondragend="onDragEnd(event)">
+                        <td><span class="drag-handle">☰</span></td>
                         <td>
                             ${product.image ? 
                                 `<img src="${product.image}" class="product-thumb" alt="${product.name}">` :
                                 `<div style="width:50px;height:50px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;">📦</div>`
                             }
                         </td>
-                        <td><strong>${product.name}</strong></td>
-                        <td>${product.barcode || '-'}</td>
+                        <td><strong>${product.name}</strong>${bulkLabel}</td>
                         <td>฿${product.price.toFixed(2)}</td>
                         <td>฿${product.cost.toFixed(2)}</td>
                         <td class="${profit >= 0 ? 'profit-positive' : 'profit-negative'}">
@@ -1566,6 +1726,9 @@
             document.getElementById('productForm').reset();
             document.getElementById('productId').value = '';
             document.getElementById('imagePreview').classList.add('hidden');
+            document.getElementById('bulkQty').value = '';
+            document.getElementById('bulkPrice').value = '';
+            document.getElementById('bulkGroup').value = '';
             document.getElementById('productModal').classList.add('active');
         }
 
@@ -1580,6 +1743,9 @@
             document.getElementById('productPrice').value = product.price;
             document.getElementById('productCost').value = product.cost;
             document.getElementById('productStock').value = product.stock;
+            document.getElementById('bulkQty').value = product.bulkQty || '';
+            document.getElementById('bulkPrice').value = product.bulkPrice || '';
+            document.getElementById('bulkGroup').value = product.bulkGroup || '';
             
             const preview = document.getElementById('imagePreview');
             if (product.image) {
@@ -1636,13 +1802,24 @@
                 imageData = imageUrl;
             }
 
+            // หา order ของสินค้าเดิม หรือใส่ไว้ท้ายสุด
+            const existingProduct = products[id];
+            const maxOrder = Object.values(products).reduce((max, p) => Math.max(max, p.order || 0), 0);
+            const bulkQty = parseInt(document.getElementById('bulkQty').value) || null;
+            const bulkPrice = parseFloat(document.getElementById('bulkPrice').value) || null;
+            const bulkGroup = document.getElementById('bulkGroup').value.trim() || null;
+
             const productData = {
                 name: document.getElementById('productName').value,
                 barcode: document.getElementById('productBarcode').value,
                 price: parseFloat(document.getElementById('productPrice').value),
                 cost: parseFloat(document.getElementById('productCost').value),
                 stock: parseInt(document.getElementById('productStock').value),
-                image: imageData
+                image: imageData,
+                order: existingProduct ? (existingProduct.order || 0) : maxOrder + 1,
+                bulkQty: bulkQty,
+                bulkPrice: bulkPrice,
+                bulkGroup: bulkGroup
             };
 
             productsRef.child(id).set(productData)
